@@ -1,4 +1,4 @@
-// Copyright 2021 The Ebiten Authors
+// Copyright 2014 Hajime Hoshi
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,79 +15,127 @@
 package main
 
 import (
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"fmt"
+	ebiten_rpc "github.com/EldersJavas/ebiten-rpc"
+	"image"
 	"image/color"
 	"log"
-	"math/rand"
+	"math"
 	"time"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 const (
 	screenWidth  = 640
 	screenHeight = 480
-	scale        = 64
-	starsCount   = 1024
 )
 
-type Star struct {
-	fromx, fromy, tox, toy, brightness float64
-}
+var RPC = ebiten_rpc.NewGameRPC("")
+var IsUpdating = false
+var (
+	brushImage *ebiten.Image
+)
 
-func (s *Star) Init() {
-	s.tox = rand.Float64() * screenWidth * scale
-	s.fromx = s.tox
-	s.toy = rand.Float64() * screenHeight * scale
-	s.fromy = s.toy
-	s.brightness = rand.Float64() * 0xff
-}
-
-func (s *Star) Update(x, y float64) {
-	s.fromx = s.tox
-	s.fromy = s.toy
-	s.tox += (s.tox - x) / 32
-	s.toy += (s.toy - y) / 32
-	s.brightness += 1
-	if 0xff < s.brightness {
-		s.brightness = 0xff
+func init() {
+	initrpc()
+	const (
+		a0 = 0x40
+		a1 = 0xc0
+		a2 = 0xff
+	)
+	pixels := []uint8{
+		a0, a1, a1, a0,
+		a1, a2, a2, a1,
+		a1, a2, a2, a1,
+		a0, a1, a1, a0,
 	}
-	if s.fromx < 0 || screenWidth*scale < s.fromx || s.fromy < 0 || screenHeight*scale < s.fromy {
-		s.Init()
-	}
-}
-
-func (s *Star) Draw(screen *ebiten.Image) {
-	c := color.RGBA{R: uint8(0xbb * s.brightness / 0xff),
-		G: uint8(0xdd * s.brightness / 0xff),
-		B: uint8(0xff * s.brightness / 0xff),
-		A: 0xff}
-	ebitenutil.DrawLine(screen, s.fromx/scale, s.fromy/scale, s.tox/scale, s.toy/scale, c)
+	brushImage = ebiten.NewImageFromImage(&image.Alpha{
+		Pix:    pixels,
+		Stride: 4,
+		Rect:   image.Rect(0, 0, 4, 4),
+	})
 }
 
 type Game struct {
-	stars [starsCount]Star
+	touches []ebiten.TouchID
+	count   int
+
+	canvasImage *ebiten.Image
 }
 
 func NewGame() *Game {
-	g := &Game{}
-	for i := 0; i < starsCount; i++ {
-		g.stars[i].Init()
+	g := &Game{
+		canvasImage: ebiten.NewImage(screenWidth, screenHeight),
 	}
+	g.canvasImage.Fill(color.White)
 	return g
 }
 
-func (g *Game) Update() error {
+func (g *Game) UpdatePos() {
 	x, y := ebiten.CursorPosition()
-	for i := 0; i < starsCount; i++ {
-		g.stars[i].Update(float64(x*scale), float64(y*scale))
+	RPC.State = fmt.Sprintf("Mouse Pos: %v,%v", x, y)
+	err := RPC.Update()
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (g *Game) Update() error {
+	if IsUpdating == false {
+		go func() {
+			for true {
+				g.UpdatePos()
+				time.Sleep(time.Second * 3)
+			}
+		}()
+		IsUpdating = true
+	}
+	drawn := false
+
+	// Paint the brush by mouse dragging
+	mx, my := ebiten.CursorPosition()
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		g.paint(g.canvasImage, mx, my)
+		drawn = true
+	}
+
+	// Paint the brush by touches
+	g.touches = ebiten.AppendTouchIDs(g.touches[:0])
+	for _, t := range g.touches {
+		x, y := ebiten.TouchPosition(t)
+		g.paint(g.canvasImage, x, y)
+		drawn = true
+	}
+	if drawn {
+		g.count++
 	}
 	return nil
 }
 
+// paint draws the brush on the given canvas image at the position (x, y).
+func (g *Game) paint(canvas *ebiten.Image, x, y int) {
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64(x), float64(y))
+	// Scale the color and rotate the hue so that colors vary on each frame.
+	op.ColorM.Scale(1.0, 0.50, 0.125, 1.0)
+	tps := ebiten.MaxTPS()
+	theta := 2.0 * math.Pi * float64(g.count%tps) / float64(tps)
+	op.ColorM.RotateHue(theta)
+	canvas.DrawImage(brushImage, op)
+}
+
 func (g *Game) Draw(screen *ebiten.Image) {
-	for i := 0; i < starsCount; i++ {
-		g.stars[i].Draw(screen)
+	screen.DrawImage(g.canvasImage, nil)
+
+	mx, my := ebiten.CursorPosition()
+	msg := fmt.Sprintf("(%d, %d)", mx, my)
+	for _, t := range g.touches {
+		x, y := ebiten.TouchPosition(t)
+		msg += fmt.Sprintf("\n(%d, %d) touch %d", x, y, t)
 	}
+	ebitenutil.DebugPrint(screen, msg)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -95,10 +143,24 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 }
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
+	ebiten.SetMaxTPS(120)
 	ebiten.SetWindowSize(screenWidth, screenHeight)
-	ebiten.SetWindowTitle("Stars (Ebiten Demo)")
+	ebiten.SetWindowTitle("Paint (Ebiten Demo)")
 	if err := ebiten.RunGame(NewGame()); err != nil {
 		log.Fatal(err)
+	}
+}
+
+func initrpc() {
+	RPC.GameName = "Ebiten example"
+	RPC.LargeImageID = "ebiten"
+	RPC.LargeImageText = "Ebitengine"
+	err := RPC.AddButton("Official Website", "https://ebiten.org/")
+	if err != nil {
+		return
+	}
+	err = RPC.Start()
+	if err != nil {
+		panic(err)
 	}
 }
