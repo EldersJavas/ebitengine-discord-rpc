@@ -16,7 +16,7 @@ package main
 
 import (
 	"fmt"
-	ebiten_rpc "github.com/EldersJavas/ebiten-rpc"
+	ebiten_rpc "github.com/EldersJavas/ebitengine-discord-rpc"
 	"image"
 	"image/color"
 	"log"
