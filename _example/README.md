@@ -4,7 +4,7 @@
 
 ### Patient:
 1. When you edit the rpc, you need to use `RPC.Update()` to update.
-
+2. Do not forget filling in your AppID
 
 
 ### Main code:
