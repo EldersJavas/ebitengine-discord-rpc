@@ -22,7 +22,7 @@ func (g *Game) UpdatePos() {
 }
 
 func initrpc() {
-	RPC.GameName = "Ebiten example"
+	RPC.GameName = "Ebiten _example"
 	RPC.LargeImageID = "ebiten"
 	RPC.LargeImageText = "Ebitengine"
 	err := RPC.AddButton("Official Website", "https://ebiten.org/")

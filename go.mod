@@ -1,4 +1,4 @@
-module github.com/EldersJavas/ebiten-rpc
+module github.com/EldersJavas/ebitengine-discord-rpc
 
 go 1.17
 

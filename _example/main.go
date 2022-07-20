@@ -16,14 +16,14 @@ package main
 
 import (
 	"fmt"
-	ebiten_rpc "github.com/EldersJavas/ebiten-rpc"
+	ebiten_rpc "github.com/EldersJavas/ebitengine-discord-rpc"
+	"github.com/hajimehoshi/ebiten/v2"
 	"image"
 	"image/color"
 	"log"
 	"math"
 	"time"
 
-	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
@@ -152,7 +152,7 @@ func main() {
 }
 
 func initrpc() {
-	RPC.GameName = "Ebiten example"
+	RPC.GameName = "Ebiten _example"
 	RPC.LargeImageID = "ebiten"
 	RPC.LargeImageText = "Ebitengine"
 	err := RPC.AddButton("Official Website", "https://ebiten.org/")
