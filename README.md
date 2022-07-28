@@ -1,6 +1,6 @@
 # [ebitengine-discord-rpc](https://github.com/EldersJavas/ebitengine-discord-rpc)
 
-Ebitengine for discord Rich Presence
+ discord Rich Presence for Ebitengine  
 
 [![GitHub license](https://img.shields.io/github/license/EldersJavas/ebitengine-discord-rpc?style=flat-square)](https://github.com/EldersJavas/ebitengine-discord-rpc/blob/master/LICENSE)
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/EldersJavas/ebitengine-discord-rpc?style=flat-square)
